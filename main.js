@@ -1,13 +1,27 @@
 const {app, BrowserWindow,ipcMain,session} = require('electron')
 const path = require('path')
 
+const { networkInterfaces } = require('os');
+
+const nets = networkInterfaces();
+const ips = [] // Or just '{}', an empty object
+
+for (const name of Object.keys(nets)) {
+  for (const net of nets[name]) {
+    // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+    if (net.family === 'IPv4' && !net.internal && !net.address.includes("172")) {
+      ips.push(net.address);
+    }
+  }
+}
+
 let mainWindow = null
 
 async function createWindow () {
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 500,
-    height: 400,
+    height: 500,
     webPreferences: {
       preload: path.join(__dirname, '/render/preload.js'),
       nodeIntegration: true, //あんまいくないらしい
@@ -22,11 +36,12 @@ async function createWindow () {
     console.log("token")
     mainWindow.webContents.send("key",[args[0]])
   }
+
+  mainWindow.webContents.send("ips",ips)
 }
 
 app.whenReady().then(() => {
   createWindow()
-
 
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders["User-Agent"] = "Chrome";
